@@ -55,6 +55,11 @@ public final class InfiniteFuel extends JavaPlugin implements Listener {
     // Command handler
     private InfiniteFuelCommand commandHandler;
     
+    // Listeners (need to keep references for proper shutdown)
+    private FurnaceListener furnaceListener;
+    private CraftingListener craftingListener;
+    private InventoryListener inventoryListener;
+    
     @Override
     public void onEnable() {
         // 1. Save default configuration (without overwriting existing values)
@@ -107,6 +112,12 @@ public final class InfiniteFuel extends JavaPlugin implements Listener {
     
     @Override
     public void onDisable() {
+        // Shutdown listeners with background tasks
+        if (furnaceListener != null) {
+            furnaceListener.shutdown();
+            getLogger().info("FurnaceListener shutdown complete.");
+        }
+        
         // Log shutdown message
         getLogger().info("===========================================");
         getLogger().info("InfiniteFuel disabled!");
@@ -154,17 +165,17 @@ public final class InfiniteFuel extends JavaPlugin implements Listener {
      */
     private void registerListeners() {
         // Furnace listener - handles fuel burning
-        FurnaceListener furnaceListener = new FurnaceListener(this, configManager, itemUtils);
+        furnaceListener = new FurnaceListener(this, configManager, itemUtils);
         Bukkit.getPluginManager().registerEvents(furnaceListener, this);
         getLogger().info("Registered FurnaceListener");
         
         // Crafting listener - prevents crafting with infinite fuel
-        CraftingListener craftingListener = new CraftingListener(this, configManager, messageManager, itemUtils);
+        craftingListener = new CraftingListener(this, configManager, messageManager, itemUtils);
         Bukkit.getPluginManager().registerEvents(craftingListener, this);
         getLogger().info("Registered CraftingListener");
         
         // Inventory listener - hopper automation and multi-stack prevention
-        InventoryListener inventoryListener = new InventoryListener(this, configManager, messageManager, itemUtils);
+        inventoryListener = new InventoryListener(this, configManager, messageManager, itemUtils);
         Bukkit.getPluginManager().registerEvents(inventoryListener, this);
         getLogger().info("Registered InventoryListener");
     }

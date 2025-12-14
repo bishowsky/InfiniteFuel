@@ -10,6 +10,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.FurnaceBurnEvent;
+import org.bukkit.event.inventory.FurnaceSmeltEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.block.BlockBreakEvent;
@@ -22,6 +23,10 @@ import pl.puffmc.infinitefuel.utils.ItemUtils;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Handles furnace-related events to implement infinite fuel mechanics.
@@ -42,6 +47,10 @@ public class FurnaceListener implements Listener {
     // Track active infinite fuel locations for continuous monitoring
     private final Map<String, ItemStack> activeFurnaces = new ConcurrentHashMap<>();
     
+    // Folia-compatible scheduler for periodic tasks
+    private final ScheduledExecutorService scheduler;
+    private ScheduledFuture<?> monitoringTask;
+    
     /**
      * Creates a new FurnaceListener.
      * 
@@ -53,22 +62,120 @@ public class FurnaceListener implements Listener {
         this.plugin = plugin;
         this.configManager = configManager;
         this.itemUtils = itemUtils;
+        
+        // Create daemon thread for Folia-compatible background tasks
+        this.scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread thread = new Thread(r, "InfiniteFuel-FurnaceMonitor");
+            thread.setDaemon(true);
+            return thread;
+        });
+        
+        // Start global monitoring task that checks ALL tracked furnaces every tick
+        startGlobalMonitoring();
+    }
+    
+    /**
+     * CRITICAL: Global monitoring task that runs EVERY TICK
+     * This ensures burn time NEVER reaches 0 and fuel is NEVER consumed
+     * FOLIA COMPATIBLE: Uses ScheduledExecutorService instead of BukkitScheduler
+     */
+    private void startGlobalMonitoring() {
+        // Schedule at fixed rate: 50ms = 1 tick (20 times per second)
+        monitoringTask = scheduler.scheduleAtFixedRate(() -> {
+            if (!configManager.isEnabled()) {
+                return;
+            }
+            
+            // Check all tracked furnaces
+            for (Map.Entry<String, ItemStack> entry : activeFurnaces.entrySet()) {
+                String locationKey = entry.getKey();
+                ItemStack trackedFuel = entry.getValue();
+                
+                // Parse location from key
+                String[] parts = locationKey.split(":");
+                if (parts.length != 4) continue;
+                
+                try {
+                    org.bukkit.World world = Bukkit.getWorld(parts[0]);
+                    if (world == null) continue;
+                    
+                    int x = Integer.parseInt(parts[1]);
+                    int y = Integer.parseInt(parts[2]);
+                    int z = Integer.parseInt(parts[3]);
+                    
+                    Location loc = new Location(world, x, y, z);
+                    
+                    // Schedule sync task on region thread for this location
+                    try {
+                        Bukkit.getRegionScheduler().run(plugin, loc, scheduledTask -> {
+                            checkAndFixFurnace(loc, locationKey, trackedFuel);
+                        });
+                    } catch (NoSuchMethodError | UnsupportedOperationException e) {
+                        // Folia not available, use global scheduler
+                        try {
+                            Bukkit.getScheduler().runTask(plugin, () -> {
+                                checkAndFixFurnace(loc, locationKey, trackedFuel);
+                            });
+                        } catch (UnsupportedOperationException ex) {
+                            // Both failed, run directly (not recommended but fallback)
+                            checkAndFixFurnace(loc, locationKey, trackedFuel);
+                        }
+                    }
+                } catch (Exception e) {
+                    // Invalid location, skip
+                }
+            }
+        }, 50, 50, TimeUnit.MILLISECONDS); // Run every 50ms = 1 tick
+    }
+    
+    /**
+     * Checks and fixes a furnace's fuel and burn time
+     * Must be called on region thread for the furnace location
+     */
+    private void checkAndFixFurnace(Location loc, String locationKey, ItemStack trackedFuel) {
+        Block block = loc.getBlock();
+        BlockState state = block.getState();
+        
+        if (!(state instanceof Furnace)) {
+            return;
+        }
+        
+        Furnace furnace = (Furnace) state;
+        FurnaceInventory inventory = furnace.getInventory();
+        
+        // SAFETY CHECK 1: Restore fuel if missing
+        ItemStack currentFuel = inventory.getFuel();
+        if (currentFuel == null || currentFuel.getAmount() == 0 || !itemUtils.hasInfiniteFuelTag(currentFuel)) {
+            inventory.setFuel(trackedFuel.clone());
+            furnace.update(true);
+            
+            if (configManager.isDebugEnabled()) {
+                plugin.getLogger().warning("[DEBUG] CRITICAL: Restored missing fuel at " + locationKey);
+            }
+        }
+        
+        // SAFETY CHECK 2: Keep burn time ALWAYS high
+        short burnTime = furnace.getBurnTime();
+        if (burnTime > 0 && burnTime < 1000) { // Less than 50 seconds
+            furnace.setBurnTime(Short.MAX_VALUE);
+            furnace.update(true);
+            
+            if (configManager.isDebugEnabled()) {
+                plugin.getLogger().info("[DEBUG] URGENT: Reset burn time at " + locationKey + 
+                                      " (was dangerously low: " + burnTime + ")");
+            }
+        }
     }
     
     /**
      * Handles furnace burn events to implement TRUE infinite fuel.
      * 
-     * This event fires when the furnace's burn time reaches 0 and it needs new fuel.
-     * - We set burn time to Short.MAX_VALUE (32767 ticks = ~27 minutes)
-     * - We immediately restore the fuel item so it's never consumed
-     * - Smelting process works normally - items cook, burn time decreases
-     * - When burn time reaches 0 again, this event fires and cycle repeats
+     * CRITICAL: This event fires when furnace tries to CONSUME fuel
+     * We MUST CANCEL to prevent item consumption, then manually set burn time
      * 
-     * Priority: LOWEST to let other plugins process first, then we override
-     * 
-     * FOLIA COMPATIBLE: Uses region scheduler instead of Bukkit scheduler
+     * Priority: HIGHEST to cancel before fuel is consumed
      */
-    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
     public void onFurnaceBurn(FurnaceBurnEvent event) {
         // Check if infinite fuel is enabled
         if (!configManager.isEnabled()) {
@@ -91,146 +198,32 @@ public class FurnaceListener implements Listener {
         String locationKey = getLocationKey(block);
         ItemStack fuelCopy = fuel.clone();
         
-        // CRITICAL: Set burn time to maximum possible value for short type
-        // Short.MAX_VALUE = 32767 ticks = ~27 minutes of continuous burning
-        event.setBurnTime(Short.MAX_VALUE);
-        event.setBurning(true);
+        // CRITICAL FIX: CANCEL the event to prevent fuel consumption
+        // Minecraft will NOT decrease item amount if we cancel
+        event.setCancelled(true);
         
         // Track this furnace as active
         activeFurnaces.put(locationKey, fuelCopy);
         
-        // CRITICAL FIX: The fuel item will be consumed after this event
-        // We MUST restore it on the next tick AND start monitoring
-        // FOLIA-SAFE: Use region scheduler for block operations
+        // Manually start burning by setting burn time on the furnace block
         try {
-            // Try Folia's region scheduler first
             Bukkit.getRegionScheduler().run(plugin, block.getLocation(), scheduledTask -> {
-                restoreFuelToFurnace(block, fuelCopy);
-                startFurnaceMonitoring(block, fuelCopy);
+                startManualBurning(block, fuelCopy);
             });
         } catch (NoSuchMethodError | UnsupportedOperationException e) {
-            // Folia API not available, fall back to Paper scheduler
             try {
                 Bukkit.getScheduler().runTask(plugin, () -> {
-                    restoreFuelToFurnace(block, fuelCopy);
-                    startFurnaceMonitoring(block, fuelCopy);
+                    startManualBurning(block, fuelCopy);
                 });
             } catch (UnsupportedOperationException ex) {
-                // On Folia without region scheduler - direct restore
-                restoreFuelToFurnace(block, fuelCopy);
-                startFurnaceMonitoring(block, fuelCopy);
+                startManualBurning(block, fuelCopy);
             }
         }
         
         // Debug logging
         if (configManager.isDebugEnabled()) {
             plugin.getLogger().info("[DEBUG] Infinite fuel activated at " + locationKey + 
-                                  " (burn time: " + event.getBurnTime() + " ticks)");
-        }
-    }
-    
-    /**
-     * Starts periodic monitoring of a furnace to ensure infinite fuel.
-     * Checks every 20 ticks (1 second) if burn time is getting low.
-     * 
-     * @param block The furnace block
-     * @param fuel The infinite fuel item
-     */
-    private void startFurnaceMonitoring(Block block, ItemStack fuel) {
-        String locationKey = getLocationKey(block);
-        
-        // Schedule repeating task to monitor this furnace
-        // FOLIA-SAFE: Use region scheduler
-        try {
-            Bukkit.getRegionScheduler().runAtFixedRate(plugin, block.getLocation(), scheduledTask -> {
-                BlockState state = block.getState();
-                if (!(state instanceof Furnace)) {
-                    scheduledTask.cancel();
-                    activeFurnaces.remove(locationKey);
-                    return;
-                }
-                
-                Furnace furnace = (Furnace) state;
-                FurnaceInventory inventory = furnace.getInventory();
-                ItemStack currentFuel = inventory.getFuel();
-                
-                // Check if furnace still has infinite fuel
-                if (currentFuel == null || !itemUtils.hasInfiniteFuelTag(currentFuel)) {
-                    // Restore fuel if missing
-                    inventory.setFuel(fuel.clone());
-                    furnace.update(true);
-                    
-                    if (configManager.isDebugEnabled()) {
-                        plugin.getLogger().info("[DEBUG] Restored missing fuel at " + locationKey);
-                    }
-                }
-                
-                // CRITICAL: Manage burn time carefully to not break smelting
-                short burnTime = furnace.getBurnTime();
-                short cookTime = furnace.getCookTime();
-                int cookTimeTotal = furnace.getCookTimeTotal();
-                
-                // Calculate how many ticks needed to finish current item
-                int ticksNeededToFinish = cookTimeTotal - cookTime;
-                
-                // If burn time is too low to finish cooking, add more
-                // But DON'T reset to max - that breaks the cooking process!
-                // Buffer = 100 ticks to account for 20-tick scheduler delay
-                if (burnTime > 0 && burnTime < ticksNeededToFinish + 100) {
-                    // Add just enough to finish + small buffer (200 ticks = 10 seconds)
-                    short newBurnTime = (short) Math.min(ticksNeededToFinish + 200, Short.MAX_VALUE);
-                    furnace.setBurnTime(newBurnTime);
-                    furnace.update(true);
-                    
-                    if (configManager.isDebugEnabled()) {
-                        plugin.getLogger().info("[DEBUG] Added burn time at " + locationKey + 
-                                              " (was: " + burnTime + ", now: " + newBurnTime + 
-                                              ", needed: " + ticksNeededToFinish + ")");
-                    }
-                }
-                
-                // If furnace is not burning and has no items, stop monitoring
-                if (burnTime <= 0 && (inventory.getSmelting() == null || inventory.getSmelting().getType().isAir())) {
-                    scheduledTask.cancel();
-                    activeFurnaces.remove(locationKey);
-                    
-                    if (configManager.isDebugEnabled()) {
-                        plugin.getLogger().info("[DEBUG] Stopped monitoring idle furnace at " + locationKey);
-                    }
-                }
-            }, 1, 20); // Start after 1 tick, repeat every 20 ticks (1 second)
-            
-        } catch (NoSuchMethodError | UnsupportedOperationException e) {
-            // Folia not available, use Bukkit scheduler
-            Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-                BlockState state = block.getState();
-                if (!(state instanceof Furnace)) {
-                    activeFurnaces.remove(locationKey);
-                    return;
-                }
-                
-                Furnace furnace = (Furnace) state;
-                FurnaceInventory inventory = furnace.getInventory();
-                ItemStack currentFuel = inventory.getFuel();
-                
-                // Restore fuel if missing
-                if (currentFuel == null || !itemUtils.hasInfiniteFuelTag(currentFuel)) {
-                    inventory.setFuel(fuel.clone());
-                    furnace.update(true);
-                }
-                
-                // Smart burn time management
-                short burnTime = furnace.getBurnTime();
-                short cookTime = furnace.getCookTime();
-                int cookTimeTotal = furnace.getCookTimeTotal();
-                int ticksNeededToFinish = cookTimeTotal - cookTime;
-                
-                if (burnTime > 0 && burnTime < ticksNeededToFinish + 100) {
-                    short newBurnTime = (short) Math.min(ticksNeededToFinish + 200, Short.MAX_VALUE);
-                    furnace.setBurnTime(newBurnTime);
-                    furnace.update(true);
-                }
-            }, 1L, 20L);
+                                  " (event cancelled, manual burning started)");
         }
     }
     
@@ -256,6 +249,40 @@ public class FurnaceListener implements Listener {
     }
     
     /**
+     * Manually starts burning in a furnace without consuming fuel item.
+     * Called after cancelling FurnaceBurnEvent to prevent fuel consumption.
+     * 
+     * @param block The furnace block
+     * @param fuel The infinite fuel item
+     */
+    private void startManualBurning(Block block, ItemStack fuel) {
+        BlockState state = block.getState();
+        if (!(state instanceof Furnace)) {
+            return;
+        }
+        
+        Furnace furnace = (Furnace) state;
+        FurnaceInventory inventory = furnace.getInventory();
+        
+        // Ensure fuel is in slot (should be there, but double-check)
+        ItemStack currentFuel = inventory.getFuel();
+        if (currentFuel == null || currentFuel.getAmount() == 0 || !itemUtils.hasInfiniteFuelTag(currentFuel)) {
+            inventory.setFuel(fuel.clone());
+        }
+        
+        // Set maximum burn time to start burning
+        furnace.setBurnTime(Short.MAX_VALUE);
+        
+        // Update the furnace state
+        furnace.update(true);
+        
+        if (configManager.isDebugEnabled()) {
+            plugin.getLogger().info("[DEBUG] Manual burning started at " + getLocationKey(block) + 
+                                  " (burn time set to: " + Short.MAX_VALUE + ")");
+        }
+    }
+    
+    /**
      * Generates a unique location key for tracking furnaces.
      * 
      * @param block The block to generate key for
@@ -266,6 +293,71 @@ public class FurnaceListener implements Listener {
                block.getX() + ":" + 
                block.getY() + ":" + 
                block.getZ();
+    }
+    
+    /**
+     * CRITICAL: Monitor burn time on every smelt operation
+     * FurnaceSmeltEvent fires every time an item finishes cooking
+     * This ensures burn time NEVER drops low enough to consume the fuel item
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onFurnaceSmelt(FurnaceSmeltEvent event) {
+        if (!configManager.isEnabled()) {
+            return;
+        }
+        
+        Block block = event.getBlock();
+        BlockState state = block.getState();
+        
+        if (!(state instanceof Furnace)) {
+            return;
+        }
+        
+        Furnace furnace = (Furnace) state;
+        FurnaceInventory inventory = furnace.getInventory();
+        ItemStack fuel = inventory.getFuel();
+        
+        // Check if this furnace has infinite fuel
+        if (fuel == null || !itemUtils.hasInfiniteFuelTag(fuel)) {
+            return;
+        }
+        
+        String locationKey = getLocationKey(block);
+        
+        // Track this furnace
+        if (!activeFurnaces.containsKey(locationKey)) {
+            activeFurnaces.put(locationKey, fuel.clone());
+        }
+        
+        // CRITICAL SAFETY NET #1: Restore fuel if it's missing
+        // This catches any edge case where fuel was consumed
+        if (fuel == null || fuel.getAmount() == 0) {
+            ItemStack trackedFuel = activeFurnaces.get(locationKey);
+            if (trackedFuel != null) {
+                inventory.setFuel(trackedFuel.clone());
+                furnace.update(true);
+                
+                if (configManager.isDebugEnabled()) {
+                    plugin.getLogger().warning("[DEBUG] EMERGENCY: Restored consumed fuel at " + locationKey);
+                }
+            }
+        }
+        
+        // CRITICAL SAFETY NET #2: ALWAYS reset burn time to maximum after each smelt
+        // This prevents burn time from EVER reaching 0 and consuming the fuel
+        short currentBurnTime = furnace.getBurnTime();
+        
+        // Reset to max if burn time is getting low (below 1000 = ~50 seconds)
+        // VERY LOW threshold = ultra-frequent resets = fuel ABSOLUTELY NEVER consumed
+        if (currentBurnTime < 1000) {
+            furnace.setBurnTime(Short.MAX_VALUE);
+            furnace.update(true);
+            
+            if (configManager.isDebugEnabled()) {
+                plugin.getLogger().info("[DEBUG] Reset burn time after smelt at " + locationKey + 
+                                      " (was: " + currentBurnTime + ", now: " + Short.MAX_VALUE + ")");
+            }
+        }
     }
     
     /**
@@ -378,5 +470,32 @@ public class FurnaceListener implements Listener {
         return material == Material.FURNACE || 
                material == Material.BLAST_FURNACE || 
                material == Material.SMOKER;
+    }
+    
+    /**
+     * Shuts down the monitoring task and executor service.
+     * CRITICAL: Must be called in plugin onDisable() to prevent memory leaks.
+     */
+    public void shutdown() {
+        // Cancel monitoring task
+        if (monitoringTask != null && !monitoringTask.isCancelled()) {
+            monitoringTask.cancel(false);
+        }
+        
+        // Shutdown executor service
+        if (scheduler != null && !scheduler.isShutdown()) {
+            scheduler.shutdown();
+            try {
+                if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+                    scheduler.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                scheduler.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
+        }
+        
+        // Clear tracking
+        activeFurnaces.clear();
     }
 }
