@@ -1,0 +1,65 @@
+# InfiniteFuel - English
+# Version: 1.0.0
+# Language: en_US
+
+# ===================================
+# SYSTEM MESSAGES
+# ===================================
+messages:
+  prefix: "&6[InfiniteFuel] &r"
+  
+  # Success messages
+  reload-success: "&aConfiguration and messages reloaded successfully!"
+  item-given: "&aAdded &6{amount}x &e{material} &ato player &b{player}&a's inventory!"
+  item-received: "&aYou received &6{amount}x &einfinite fuel &7({material})&a!"
+  
+  # Error messages
+  reload-failed: "&cError while reloading configuration! Check console."
+  no-permission: "&cYou don't have permission to execute this command!"
+  player-not-found: "&cPlayer &e{player} &cnot found or is not online!"
+  invalid-material: "&cMaterial &e{material} &cis not an allowed fuel material!"
+  invalid-amount: "&cInvalid amount! Use a number from 1 to 64."
+  inventory-full: "&cPlayer &e{player}&c's inventory is full!"
+  item-creation-failed: "&cFailed to create item! Check console."
+  unknown-command: "&cUnknown command! Use &e/infinitefuel help&c."
+  
+  # Action blocking messages
+  crafting-blocked: "&cYou cannot use infinite fuel in crafting!"
+  hopper-blocked: "&cHoppers cannot move infinite fuel!"
+  multi-stack-prevented: "&cYou can only place &e1 piece &cof infinite fuel in the furnace!"
+
+# ===================================
+# COMMANDS - HELP
+# ===================================
+commands:
+  help-header: "&6&m━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n&6&lInfiniteFuel - Help\n&6&m━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  help-reload: "&e/infinitefuel reload &7- Reload the plugin"
+  help-give: "&e/infinitefuel give <player> <material> [amount] &7- Give infinite fuel"
+  
+  # Command usage
+  usage-reload: "&cUsage: &e/infinitefuel reload"
+  usage-give: "&cUsage: &e/infinitefuel give <player> <material> [amount]"
+
+# ===================================
+# FEATURE DESCRIPTIONS
+# ===================================
+descriptions:
+  infinite-fuel: "Infinite fuel never runs out in furnaces!"
+  prevent-crafting: "Cannot be used in any type of crafting."
+  furnace-compatible: "Works in: Furnace, Blast Furnace, Smoker."
+  
+# ===================================
+# NOTES
+# ===================================
+# Use & for color codes:
+# &0 = Black        &8 = Dark Gray
+# &1 = Dark Blue    &9 = Blue
+# &2 = Dark Green   &a = Green
+# &3 = Dark Aqua    &b = Aqua
+# &4 = Dark Red     &c = Red
+# &5 = Dark Purple  &d = Light Purple
+# &6 = Gold         &e = Yellow
+# &7 = Gray         &f = White
+# &l = Bold         &m = Strikethrough
+# &n = Underline    &o = Italic
+# &r = Reset

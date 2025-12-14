@@ -1,0 +1,65 @@
+# InfiniteFuel - Polski
+# Wersja: 1.0.0
+# Język: pl_PL
+
+# ===================================
+# WIADOMOŚCI SYSTEMOWE
+# ===================================
+messages:
+  prefix: "&6[InfiniteFuel] &r"
+  
+  # Wiadomości sukcesu
+  reload-success: "&aPrzeładowano konfigurację i wiadomości pomyślnie!"
+  item-given: "&aDodano &6{amount}x &e{material} &ado ekwipunku gracza &b{player}&a!"
+  item-received: "&aOtrzymałeś &6{amount}x &enieskończonego paliwa &7({material})&a!"
+  
+  # Wiadomości błędów
+  reload-failed: "&cBłąd podczas przeładowania konfiguracji! Sprawdź konsolę."
+  no-permission: "&cNie masz uprawnień do wykonania tej komendy!"
+  player-not-found: "&cGracz &e{player} &cnie został znaleziony lub nie jest online!"
+  invalid-material: "&cMateriał &e{material} &cnie jest dozwolonym materiałem paliwa!"
+  invalid-amount: "&cNieprawidłowa ilość! Użyj liczby od 1 do 64."
+  inventory-full: "&cEkwipunek gracza &e{player} &cjest pełny!"
+  item-creation-failed: "&cNie udało się utworzyć przedmiotu! Sprawdź konsolę."
+  unknown-command: "&cNieznana komenda! Użyj &e/infinitefuel help&c."
+  
+  # Wiadomości blokowania akcji
+  crafting-blocked: "&cNie możesz użyć nieskończonego paliwa w craftingu!"
+  hopper-blocked: "&cHopery nie mogą przenosić nieskończonego paliwa!"
+  multi-stack-prevented: "&cMożesz umieścić tylko &e1 sztukę &cnieskończonego paliwa w piecu!"
+
+# ===================================
+# KOMENDY - POMOC
+# ===================================
+commands:
+  help-header: "&6&m━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n&6&lInfiniteFuel - Pomoc\n&6&m━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  help-reload: "&e/infinitefuel reload &7- Przeładuj plugin"
+  help-give: "&e/infinitefuel give <gracz> <materiał> [ilość] &7- Daj nieskończone paliwo"
+  
+  # Użycie komend
+  usage-reload: "&cUżycie: &e/infinitefuel reload"
+  usage-give: "&cUżycie: &e/infinitefuel give <gracz> <materiał> [ilość]"
+
+# ===================================
+# OPISY FUNKCJI
+# ===================================
+descriptions:
+  infinite-fuel: "Nieskończone paliwo nigdy się nie kończy w piecach!"
+  prevent-crafting: "Nie można użyć w żadnym rodzaju craftingu."
+  furnace-compatible: "Działa w: Piecu, Piecu hutniczym, Wędzarni."
+  
+# ===================================
+# NOTATKI
+# ===================================
+# Użyj & dla kodów kolorów:
+# &0 = Czarny       &8 = Ciemny szary
+# &1 = Ciemny niebieski  &9 = Niebieski
+# &2 = Ciemny zielony    &a = Zielony
+# &3 = Ciemny aqua  &b = Aqua
+# &4 = Ciemny czerwony   &c = Czerwony
+# &5 = Ciemny fioletowy  &d = Różowy
+# &6 = Złoty        &e = Żółty
+# &7 = Szary        &f = Biały
+# &l = Pogrubienie  &m = Przekreślenie
+# &n = Podkreślenie &o = Kursywa
+# &r = Reset

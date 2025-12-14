@@ -1,0 +1,88 @@
+# InfiniteFuel - Configuration
+# Version: 1.0.0
+# Author: PuffMC
+
+# ===================================
+# LANGUAGE SETTINGS
+# ===================================
+language:
+  # Available languages: pl_PL, en_US
+  # Language files are located in the lang/ folder
+  locale: "en_US"
+
+# ===================================
+# INFINITE FUEL SETTINGS
+# ===================================
+infinite-fuel:
+  # Is infinite fuel enabled?
+  enabled: true
+  
+  # Block using infinite fuel in crafting?
+  # If true, players cannot use infinite fuel in:
+  # - Crafting Table
+  # - Anvil
+  # - Smithing Table
+  # - Grindstone
+  # - Stonecutter
+  # - Loom
+  # - Cartography Table
+  # - Brewing Stand (as ingredient)
+  prevent-crafting: true
+  
+  # Can hoppers move infinite fuel?
+  # false = hoppers cannot move (better for balance)
+  # true = hoppers can move (better for automation)
+  allow-hopper-automation: false
+  
+  # Prevent stacking infinite fuel?
+  # If true, only 1 piece can be in furnace fuel slot
+  # (prevents accidentally wasting multiple pieces)
+  prevent-multi-stack: true
+  
+  # Default material type for infinite fuel when not specified
+  # Used when giving items without specifying material
+  # Must be one of the materials from allowed-materials list
+  default-material: "COAL"
+  
+  # List of allowed materials for infinite fuel
+  # Only materials from this list can be converted to infinite fuel
+  # Check material names: https://hub.spigotmc.org/javadocs/spigot/org/bukkit/Material.html
+  allowed-materials:
+    - COAL
+    - CHARCOAL
+    - COAL_BLOCK
+    - BLAZE_ROD
+    - LAVA_BUCKET
+
+# ===================================
+# ITEM SETTINGS
+# ===================================
+item:
+  # Display name for infinite fuel
+  # Use & for colors (e.g. &6 = gold, &a = green)
+  # Available placeholders: {material} - base material name
+  name: "&6&lInfinite Fuel"
+  
+  # Item lore (description)
+  # Each line is a separate entry in the description
+  # Use & for colors
+  # Available placeholders: {material} - base material name
+  lore:
+    - ""
+    - "&7This magical fuel never runs out!"
+    - "&7Perfect for large smelting projects."
+    - ""
+    - "&8Base material: &f{material}"
+    - ""
+    - "&c⚠ Cannot be used in crafting"
+    - "&c⚠ Cannot be modified"
+    - ""
+
+# ===================================
+# CONFIGURATION NOTES
+# ===================================
+# 1. After changing configuration use /infinitefuel reload
+# 2. Invalid materials will be automatically skipped
+# 3. If all materials are invalid, default list will be used
+# 4. Infinite fuel works in: Furnace, Blast Furnace, Smoker
+# 5. Compatible with Paper 1.21-1.21.11 and Folia 1.21.8

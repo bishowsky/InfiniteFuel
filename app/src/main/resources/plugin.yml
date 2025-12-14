@@ -1,0 +1,34 @@
+name: InfiniteFuel
+version: ${version}
+main: pl.puffmc.infinitefuel.InfiniteFuel
+api-version: 1.21
+folia-supported: true
+author: PuffMC
+description: Infinite fuel system for furnaces
+
+commands:
+  infinitefuel:
+    description: Main InfiniteFuel command
+    usage: /infinitefuel <reload|give|help>
+    aliases: [ifuel]
+
+permissions:
+  infinitefuel.*:
+    description: Access to all InfiniteFuel features
+    default: op
+    children:
+      infinitefuel.use: true
+      infinitefuel.reload: true
+      infinitefuel.give: true
+  
+  infinitefuel.use:
+    description: Allows using infinite fuel
+    default: true
+  
+  infinitefuel.reload:
+    description: Allows reloading the plugin
+    default: op
+  
+  infinitefuel.give:
+    description: Allows giving infinite fuel
+    default: op
