@@ -3,6 +3,15 @@
 # Author: PuffMC
 
 # ===================================
+# DEBUG SETTINGS
+# ===================================
+debug:
+  # Enable debug logging?
+  # If true, detailed information will be logged to console
+  # Useful for troubleshooting and monitoring plugin behavior
+  enabled: false
+
+# ===================================
 # LANGUAGE SETTINGS
 # ===================================
 language:

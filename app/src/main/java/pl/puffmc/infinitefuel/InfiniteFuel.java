@@ -57,37 +57,60 @@ public final class InfiniteFuel extends JavaPlugin implements Listener {
     
     @Override
     public void onEnable() {
-        // 1. Save default configuration
+        // 1. Save default configuration (without overwriting existing values)
         saveDefaultConfig();
         
-        // 2. Initialize managers
+        // 2. Update config with new keys if they don't exist
+        updateConfig();
+        
+        // 3. Initialize managers
         initializeManagers();
         
-        // 3. Validate materials from config
+        // 4. Validate materials from config
         validateMaterials();
         
-        // 4. Register event listeners
+        // 5. Register event listeners
         registerListeners();
         
-        // 5. Register this plugin as listener for ServerLoadEvent (Paper 1.21+ command registration)
+        // 6. Register this plugin as listener for ServerLoadEvent (Paper 1.21+ command registration)
         Bukkit.getPluginManager().registerEvents(this, this);
         
-        // 6. Log startup message
+        // 7. Log startup message
         getLogger().info("===========================================");
-        getLogger().info("InfiniteFuel włączony pomyślnie!");
-        getLogger().info("Wersja: " + getPluginMeta().getVersion());
-        getLogger().info("Autor: PuffMC");
-        getLogger().info("Język: " + configManager.getLocale());
-        getLogger().info("Załadowano " + validMaterials.size() + " materiałów paliwa");
+        getLogger().info("InfiniteFuel enabled successfully!");
+        getLogger().info("Version: " + getPluginMeta().getVersion());
+        getLogger().info("Author: Bishyy");
+        getLogger().info("Language: " + configManager.getLocale());
+        getLogger().info("Loaded " + validMaterials.size() + " fuel materials");
         getLogger().info("===========================================");
+    }
+    
+    /**
+     * Updates existing config.yml with new keys from defaults without overwriting existing values.
+     * This allows seamless updates when new config options are added in plugin updates.
+     */
+    private void updateConfig() {
+        boolean configUpdated = false;
+        
+        // Add new keys if they don't exist
+        if (!getConfig().contains("debug.enabled")) {
+            getConfig().set("debug.enabled", false);
+            configUpdated = true;
+        }
+        
+        // Save if any updates were made
+        if (configUpdated) {
+            saveConfig();
+            getLogger().info("Configuration updated with new options!");
+        }
     }
     
     @Override
     public void onDisable() {
         // Log shutdown message
         getLogger().info("===========================================");
-        getLogger().info("InfiniteFuel wyłączony!");
-        getLogger().info("Do zobaczenia!");
+        getLogger().info("InfiniteFuel disabled!");
+        getLogger().info("Goodbye!");
         getLogger().info("===========================================");
     }
     
@@ -110,7 +133,7 @@ public final class InfiniteFuel extends JavaPlugin implements Listener {
         // Item factory (depends on config, message, and item utils)
         itemFactory = new ItemFactory(this, configManager, messageManager, itemUtils);
         
-        getLogger().info("Menedżery zainicjalizowane pomyślnie.");
+        getLogger().info("Managers initialized successfully.");
     }
     
     /**
@@ -121,8 +144,8 @@ public final class InfiniteFuel extends JavaPlugin implements Listener {
         validMaterials = materialValidator.validateMaterials(materialNames);
         
         if (validMaterials.isEmpty()) {
-            getLogger().warning("OSTRZEŻENIE: Brak prawidłowych materiałów paliwa!");
-            getLogger().warning("Plugin może nie działać poprawnie.");
+            getLogger().warning("WARNING: No valid fuel materials found!");
+            getLogger().warning("Plugin may not work correctly.");
         }
     }
     
@@ -133,17 +156,17 @@ public final class InfiniteFuel extends JavaPlugin implements Listener {
         // Furnace listener - handles fuel burning
         FurnaceListener furnaceListener = new FurnaceListener(this, configManager, itemUtils);
         Bukkit.getPluginManager().registerEvents(furnaceListener, this);
-        getLogger().info("Zarejestrowano FurnaceListener");
+        getLogger().info("Registered FurnaceListener");
         
         // Crafting listener - prevents crafting with infinite fuel
         CraftingListener craftingListener = new CraftingListener(this, configManager, messageManager, itemUtils);
         Bukkit.getPluginManager().registerEvents(craftingListener, this);
-        getLogger().info("Zarejestrowano CraftingListener");
+        getLogger().info("Registered CraftingListener");
         
         // Inventory listener - hopper automation and multi-stack prevention
         InventoryListener inventoryListener = new InventoryListener(this, configManager, messageManager, itemUtils);
         Bukkit.getPluginManager().registerEvents(inventoryListener, this);
-        getLogger().info("Zarejestrowano InventoryListener");
+        getLogger().info("Registered InventoryListener");
     }
     
     /**
@@ -170,14 +193,14 @@ public final class InfiniteFuel extends JavaPlugin implements Listener {
             if (command != null) {
                 command.setExecutor(commandHandler);
                 command.setTabCompleter(commandHandler);
-                getLogger().info("Komenda /infinitefuel zarejestrowana pomyślnie!");
+                getLogger().info("Command /infinitefuel registered successfully!");
             } else {
-                getLogger().severe("BŁĄD: Komenda 'infinitefuel' nie została znaleziona w plugin.yml!");
-                getLogger().severe("Plugin nie będzie miał dostępnych komend!");
+                getLogger().severe("ERROR: Command 'infinitefuel' not found in plugin.yml!");
+                getLogger().severe("Plugin will not have available commands!");
             }
             
         } catch (Exception e) {
-            getLogger().severe("BŁĄD podczas rejestracji komendy: " + e.getMessage());
+            getLogger().severe("ERROR during command registration: " + e.getMessage());
             e.printStackTrace();
         }
     }

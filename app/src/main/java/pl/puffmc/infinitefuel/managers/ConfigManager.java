@@ -29,7 +29,7 @@ public class ConfigManager {
     public void reload() {
         plugin.reloadConfig();
         this.config = plugin.getConfig();
-        plugin.getLogger().info("Konfiguracja przeładowana pomyślnie.");
+        plugin.getLogger().info("Configuration reloaded successfully.");
     }
     
     /**
@@ -49,6 +49,15 @@ public class ConfigManager {
     }
     
     // Convenience methods for commonly accessed config values
+    
+    /**
+     * Checks if debug logging is enabled.
+     * 
+     * @return true if debug mode is enabled
+     */
+    public boolean isDebugEnabled() {
+        return config.getBoolean("debug.enabled", false);
+    }
     
     /**
      * Checks if infinite fuel functionality is enabled.

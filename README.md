@@ -1,7 +1,7 @@
 # InfiniteFuel
 
 **Version:** 1.0.0  
-**Author:** PuffMC  
+**Author:** Bishyy  
 **Compatibility:** Paper 1.21 - 1.21.11, Folia 1.21.8
 
 ## 📖 Description
@@ -191,7 +191,7 @@ plugins/
 
 **Note:** Configuration and data are preserved.i
 
-## 📝 PuffMC Standards
+## 📝 Bishyy Standards
 
 Plugin created according to PuffMC standards:
 
@@ -225,7 +225,7 @@ cd InfiniteFuel
 
 ## 📄 License
 
-Copyright © 2025 PuffMC. All rights reserved.
+Copyright © 2025 Bishyy. All rights reserved.
 
 ---
 
@@ -239,6 +239,6 @@ If you have questions or problems:
 
 ---
 
-**Created with ❤️ for the PuffMC community**
+**Created with ❤️ for the Bishyy community**
 
-**Stworzono z ❤️ dla społeczności PuffMC**
+**Stworzono z ❤️ dla społeczności Bishyy**
